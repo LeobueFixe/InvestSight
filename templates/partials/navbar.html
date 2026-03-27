@@ -4,6 +4,7 @@
         <ul class="nav-links">
             <li><a href="{% url 'portfolio:index' %}">Portfolios</a></li>
             {% if user.is_authenticated %}
+                <li><a href="{% url 'wallet:wallet' %}">Wallet</a></li>
                 <li><a href="/api/docs">API Docs</a></li>
                 <li>
                     <form method="post" action="{% url 'logout' %}">

@@ -2,8 +2,21 @@ from decimal import Decimal
 from typing import Optional
 
 from django.db import models
+from django.conf import settings
 
 from apps.apis.services.unified import get_price
+
+
+class EncryptedField(models.BinaryField):
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("max_length", 512)
+        super().__init__(*args, **kwargs)
+
+    def deconstruct(self):
+        name, path, args, kwargs = super().deconstruct()
+        if "max_length" in kwargs:
+            del kwargs["max_length"]
+        return name, path, args, kwargs
 
 
 class AssetType(models.TextChoices):
@@ -71,3 +84,17 @@ class Holding(models.Model):
 
     def __str__(self):
         return f"{self.asset.symbol} x {self.quantity}"
+
+
+class Wallet(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="wallet",
+    )
+    encrypted_seed = EncryptedField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Wallet for {self.user.username}"
