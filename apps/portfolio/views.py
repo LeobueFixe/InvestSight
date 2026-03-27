@@ -10,10 +10,7 @@ def signup(request):
     if request.method == "POST":
         form = UserCreationForm(request.POST)
         if form.is_valid():
-            user = form.save(commit=False)
-            password = form.cleaned_data["password1"]
-            user.set_password(password)
-            user.save()
+            user = form.save()
             login(request, user)
             return redirect("/")
     else:
