@@ -4,6 +4,7 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
 
 from apps.portfolio.models import Portfolio
+from apps.wallet.models import Holding
 
 
 def signup(request):
@@ -11,6 +12,7 @@ def signup(request):
         form = UserCreationForm(request.POST)
         if form.is_valid():
             user = form.save()
+            Portfolio.objects.create(name="My Portfolio", user=user)
             login(request, user)
             return redirect("/")
     else:
@@ -38,3 +40,11 @@ def detail(request, portfolio_id):
             "allocation": allocation,
         },
     )
+
+
+@login_required
+def wallet(request):
+    holdings = Holding.objects.filter(portfolio__user=request.user).select_related(
+        "asset", "portfolio"
+    )
+    return render(request, "portfolio/wallet.html", {"holdings": holdings})

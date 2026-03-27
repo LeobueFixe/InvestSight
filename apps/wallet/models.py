@@ -5,18 +5,19 @@ from django.db import models
 
 from apps.apis.services.unified import get_price
 
-
+#This define the type of asset, either cryptocurrency or stock. It is used to determine which API to use to get the price of the asset.
 class AssetType(models.TextChoices):
     CRYPTO = "crypto", "Cryptocurrency"
     STOCK = "stock", "Stock"
 
-
+#Represents a financial asset, such as a cryptocurrency or stock. It has fields for the symbol, name, type, and creation date. The save method ensures that the symbol is always stored in uppercase. The current_price property retrieves the latest price of the asset using the get_price function. The __str__ method provides a human-readable representation of the asset.
 class Asset(models.Model):
     symbol = models.CharField(max_length=20, unique=True)
     name = models.CharField(max_length=200)
     asset_type = models.CharField(max_length=20, choices=AssetType.choices)
     created_at = models.DateTimeField(auto_now_add=True)
 
+#Override the save method to ensure that the symbol is always stored in uppercase. This helps maintain consistency and makes it easier to query assets by their symbol.
     def save(self, *args, **kwargs):
         self.symbol = self.symbol.upper()
         super().save(*args, **kwargs)
