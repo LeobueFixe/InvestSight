@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+      - "8001:8001"
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.dev
+      - SECRET_KEY=change-me-in-docker
+      - DEBUG=True
+      - ALLOWED_HOSTS=localhost,127.0.0.1
+      - USE_MOCK_DATA=True
+      - COINGECKO_BASE_URL=
+      - COINGECKO_API_KEY=
+      - YAHOO_FINANCE_ENABLED=False
+      - CACHE_TTL_CRYPTO=300
+      - CACHE_TTL_STOCK=600
+      - RETRY_MAX_ATTEMPTS=3
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - .:/app
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000 &
+             uvicorn api.main:app --host 0.0.0.0 --port 8001"

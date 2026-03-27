@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block title %}Logged Out - InvestSight{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Logged Out</h1>
+    <p>You have been logged out.</p>
+    <a href="{% url 'login' %}" class="btn">Login again</a>
+</div>
+{% endblock %}

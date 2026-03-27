@@ -1,0 +1,14 @@
+Django>=5.0,<6.0
+django-environ>=0.11
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2.0
+requests>=2.31
+yfinance>=0.2
+tenacity>=8.2
+structlog>=24.0
+pytest>=8.0
+pytest-django>=4.8
+pytest-mock>=3.12
+responses>=0.25
+model-bakery>=1.18

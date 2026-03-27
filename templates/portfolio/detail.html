@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}{{ portfolio.name }} - InvestSight{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>{{ portfolio.name }}</h1>
+    
+    <div class="portfolio-summary">
+        <div class="stat-card">
+            <span class="label">Total Invested</span>
+            <span class="value">${{ portfolio.total_invested }}</span>
+        </div>
+        <div class="stat-card">
+            <span class="label">Current Value</span>
+            <span class="value">${{ portfolio.current_value }}</span>
+        </div>
+        <div class="stat-card">
+            <span class="label">Total P&L</span>
+            <span class="value {% if portfolio.total_pnl >= 0 %}positive{% else %}negative{% endif %}">
+                ${{ portfolio.total_pnl }}
+            </span>
+        </div>
+    </div>
+    
+    <h2>Holdings</h2>
+    {% include 'holdings/list.html' %}
+    
+    <h2>Allocation</h2>
+    <div class="allocation-chart">
+        {% for item in allocation %}
+        <div class="allocation-item">
+            <span class="asset">{{ item.asset }}</span>
+            <span class="pct">{{ item.pct_of_portfolio }}%</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

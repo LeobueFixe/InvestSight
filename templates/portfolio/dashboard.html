@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Portfolio Dashboard - InvestSight{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>My Portfolios</h1>
+    
+    <div class="portfolio-list">
+        {% for portfolio in portfolios %}
+        <div class="portfolio-card">
+            <h2>{{ portfolio.name }}</h2>
+            <div class="portfolio-stats">
+                <div class="stat">
+                    <span class="label">Total Invested</span>
+                    <span class="value">${{ portfolio.total_invested }}</span>
+                </div>
+                <div class="stat">
+                    <span class="label">Current Value</span>
+                    <span class="value">${{ portfolio.current_value }}</span>
+                </div>
+                <div class="stat">
+                    <span class="label">P&L</span>
+                    <span class="value {% if portfolio.total_pnl >= 0 %}positive{% else %}negative{% endif %}">
+                        ${{ portfolio.total_pnl }}
+                    </span>
+                </div>
+            </div>
+            <a href="{% url 'portfolio:detail' portfolio.id %}" class="btn">View Details</a>
+        </div>
+        {% empty %}
+        <p>No portfolios yet. Create one to get started.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
