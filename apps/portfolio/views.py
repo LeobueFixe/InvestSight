@@ -1,19 +1,18 @@
 from django.shortcuts import render, get_object_or_404, redirect
+from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
 
 from apps.portfolio.models import Portfolio
+from apps.wallet.models import SeedPhrase
 
 
 def signup(request):
     if request.method == "POST":
         form = UserCreationForm(request.POST)
         if form.is_valid():
-            user = form.save(commit=False)
-            password = form.cleaned_data["password1"]
-            user.set_password(password)
-            user.save()
+            user = form.save()
             login(request, user)
             return redirect("/")
     else:
@@ -41,3 +40,21 @@ def detail(request, portfolio_id):
             "allocation": allocation,
         },
     )
+
+
+@login_required
+def wallet(request):
+    seed_phrase = getattr(request.user, "seed_phrase", None)
+    if not seed_phrase:
+        seed_phrase = SeedPhrase.objects.create(user=request.user)
+
+    if request.method == "POST":
+        import json
+
+        data = json.loads(request.body)
+        if data.get("action") == "mark_downloaded":
+            seed_phrase.is_downloaded = True
+            seed_phrase.save()
+            return JsonResponse({"status": "ok"})
+
+    return render(request, "portfolio/wallet.html", {"seed_phrase": seed_phrase})

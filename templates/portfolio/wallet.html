@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Wallet - InvestSight{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>My Wallet</h1>
+    
+    {% if not seed_phrase.is_downloaded %}
+    <div class="wallet-actions" style="position: fixed; bottom: 24px; right: 24px;">
+        <button onclick="downloadSeedPhrase()" class="btn-download">⬇ Download Seed Phrase</button>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.btn-download {
+    background: #1a73e8;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    transition: background 0.2s, box-shadow 0.2s;
+}
+.btn-download:hover {
+    background: #1557b0;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+</style>
+
+<script>
+function downloadSeedPhrase() {
+    const phrase = "{{ seed_phrase.get_phrase|escapejs }}";
+    const blob = new Blob([phrase], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "seedphrase.txt";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    fetch("{% url 'portfolio:wallet' %}", {
+        method: "POST",
+        headers: {
+            "X-CSRFToken": "{{ csrf_token }}",
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({"action": "mark_downloaded"})
+    });
+    
+    location.reload();
+}
+</script>
+{% endblock %}
