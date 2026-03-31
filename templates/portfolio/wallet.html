@@ -6,52 +6,99 @@
 <div class="container">
     <h1>My Wallet</h1>
     
-    <div class="wallet-actions">
-        <button onclick="downloadSeedPhrase()" class="btn">Download Seed Phrase</button>
+    <div class="wallet-card">
+        <h2>Import Existing Wallet</h2>
+        <p>Already have a wallet? Import it using your seed phrase.</p>
+        <a href="{% url 'portfolio:import_step1' %}" class="btn-import">Import Wallet</a>
+    </div>
+
+    <div class="wallet-card">
+        <h2>Receive Cryptocurrency</h2>
+        <p>Get your public address to receive crypto deposits.</p>
+        <a href="{% url 'portfolio:receive_crypto_list' %}" class="btn-receive">Select Cryptocurrency</a>
     </div>
     
-    <h2>Holdings</h2>
-    <table class="holdings-table">
-        <thead>
-            <tr>
-                <th>Asset</th>
-                <th>Portfolio</th>
-                <th>Quantity</th>
-                <th>Avg Buy Price</th>
-                <th>Total Cost</th>
-                <th>Current Value</th>
-                <th>P&L</th>
-                <th>P&L %</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for holding in holdings %}
-            <tr>
-                <td>{{ holding.asset.symbol }}</td>
-                <td>{{ holding.portfolio.name }}</td>
-                <td>{{ holding.quantity }}</td>
-                <td>${{ holding.avg_buy_price }}</td>
-                <td>${{ holding.total_cost }}</td>
-                <td>${{ holding.current_value }}</td>
-                <td class="{% if holding.profit_loss >= 0 %}positive{% else %}negative{% endif %}">
-                    ${{ holding.profit_loss }}
-                </td>
-                <td class="{% if holding.pnl_pct >= 0 %}positive{% else %}negative{% endif %}">
-                    {{ holding.pnl_pct }}%
-                </td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="8">No holdings yet.</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    {% if not seed_phrase.is_downloaded %}
+    <div class="wallet-actions" style="position: fixed; bottom: 24px; right: 24px;">
+        <button onclick="downloadSeedPhrase()" class="btn-download">⬇ Download Seed Phrase</button>
+    </div>
+    {% endif %}
 </div>
+
+<style>
+.wallet-card {
+    background: #f8f9fa;
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    padding: 30px;
+    margin: 20px 0;
+    text-align: center;
+}
+.wallet-card h2 {
+    margin: 0 0 10px 0;
+}
+.wallet-card p {
+    color: #666;
+    margin: 0 0 20px 0;
+}
+.btn-import {
+    display: inline-block;
+    background: #28a745;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+.btn-import:hover {
+    background: #218838;
+}
+.btn-receive {
+    display: inline-block;
+    background: #F7931A;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+.btn-receive:hover {
+    background: #e08600;
+}
+.btn-eth {
+    background: #627EEA;
+}
+.btn-eth:hover {
+    background: #4a62c7;
+}
+.crypto-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+.btn-download {
+    background: #1a73e8;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    transition: background 0.2s, box-shadow 0.2s;
+}
+.btn-download:hover {
+    background: #1557b0;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+</style>
 
 <script>
 function downloadSeedPhrase() {
-    const phrase = "{{ seed_phrase.phrase|escapejs }}";
+    const phrase = "{{ seed_phrase.get_phrase|escapejs }}";
     const blob = new Blob([phrase], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -61,6 +108,17 @@ function downloadSeedPhrase() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    
+    fetch("{% url 'portfolio:wallet' %}", {
+        method: "POST",
+        headers: {
+            "X-CSRFToken": "{{ csrf_token }}",
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({"action": "mark_downloaded"})
+    });
+    
+    location.reload();
 }
 </script>
 {% endblock %}

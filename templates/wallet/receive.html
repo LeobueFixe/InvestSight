@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block title %}Receive Crypto - InvestSight{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Receive {{ crypto_info.name }}</h1>
+    
+    <div class="receive-card">
+        <div class="crypto-badge {{ crypto }}" style="background: {{ crypto_info.color }}20; color: {{ crypto_info.color }}">
+            <span class="crypto-icon">{{ crypto_info.icon }}</span>
+            <span class="crypto-name">{{ crypto_info.name }} ({{ crypto_info.symbol }})</span>
+        </div>
+        
+        <div class="qr-section">
+            <div class="qr-code">
+                <img src="data:image/png;base64,{{ qr_code }}" alt="QR Code" width="200" height="200">
+            </div>
+        </div>
+        
+        <div class="address-section">
+            <h3>Your {{ crypto_info.name }} Address</h3>
+            <div class="address-box">
+                <code>{{ public_address }}</code>
+            </div>
+            <div class="address-actions">
+                <button onclick="copyAddress()" class="btn-copy">Copy Address</button>
+                <button onclick="downloadQR()" class="btn-download-qr">Download QR</button>
+            </div>
+            <p class="warning">Only send {{ crypto_info.symbol }} to this address. Assets sent from other networks may be lost.</p>
+        </div>
+    </div>
+    
+    <a href="{% url 'portfolio:receive_crypto_list' %}" class="btn-back">← Select Another Cryptocurrency</a>
+</div>
+
+<style>
+.receive-card {
+    background: #f8f9fa;
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    padding: 30px;
+    margin: 20px 0;
+    max-width: 600px;
+}
+.crypto-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: bold;
+}
+
+.crypto-icon {
+    font-size: 24px;
+}
+.qr-section {
+    text-align: center;
+    margin-bottom: 30px;
+}
+.qr-code {
+    display: inline-block;
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.qr-code img {
+    display: block;
+}
+.address-section {
+    text-align: center;
+}
+.address-section h3 {
+    margin: 0 0 15px 0;
+    color: #333;
+}
+.address-box {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 15px;
+    margin-bottom: 15px;
+    word-break: break-all;
+}
+.address-box code {
+    font-family: monospace;
+    font-size: 12px;
+    color: #333;
+}
+.address-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 15px;
+}
+.btn-copy, .btn-download-qr {
+    background: #1a73e8;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.btn-copy:hover, .btn-download-qr:hover {
+    background: #1557b0;
+}
+.warning {
+    color: #dc3545;
+    font-size: 12px;
+    margin: 0;
+}
+.btn-back {
+    display: inline-block;
+    color: #1a73e8;
+    text-decoration: none;
+    margin-top: 10px;
+}
+.btn-back:hover {
+    text-decoration: underline;
+}
+</style>
+
+<script>
+function copyAddress() {
+    const address = "{{ public_address }}";
+    navigator.clipboard.writeText(address).then(() => {
+        alert("Address copied to clipboard!");
+    });
+}
+
+function downloadQR() {
+    const qrImage = document.querySelector('.qr-code img');
+    const link = document.createElement('a');
+    link.href = qrImage.src;
+    link.download = 'wallet_qr.png';
+    link.click();
+}
+</script>
+{% endblock %}

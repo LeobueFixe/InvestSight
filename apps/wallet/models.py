@@ -2083,19 +2083,286 @@ class SeedPhrase(models.Model):
     user = models.OneToOneField(
         User, on_delete=models.CASCADE, related_name="seed_phrase"
     )
-    phrase = models.CharField(max_length=500)
+    is_downloaded = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def save(self, *args, **kwargs):
-        if not self.phrase:
-            self.phrase = generate_seed_phrase()
-        super().save(*args, **kwargs)
+    def get_phrase(self):
+        return generate_seed_phrase()
 
     def __str__(self):
         return f"SeedPhrase for {self.user.username}"
 
 
-# This define the type of asset, either cryptocurrency or stock. It is used to determine which API to use to get the price of the asset.
+# secp256k1 curve order (the range for valid private keys)
+CURVE_ORDER = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+
+
+# Generate a random private key.
+def generate_private_key():
+    while True:
+        # Generate 32 random bytes using cryptographically secure RNG
+        private_key_bytes = secrets.token_bytes(32)
+        # Convert to integer
+        private_key_int = int.from_bytes(private_key_bytes, "big")
+        # Check if within valid range (1 to CURVE_ORDER-1)
+        if 1 <= private_key_int < CURVE_ORDER:
+            return private_key_int
+
+
+# Derive the public key from the private key using the secp256k1 curve
+def derive_public_key(private_key_int):
+    from ecdsa import SigningKey, SECP256k1
+
+    private_key_bytes = private_key_int.to_bytes(32, "big")
+    signing_key = SigningKey.from_string(private_key_bytes, curve=SECP256k1)
+    verifying_key = signing_key.get_verifying_key()
+    return verifying_key.to_string("raw").hex()
+
+
+def hash160(public_key_bytes: bytes) -> bytes:
+    from hashlib import sha256, new
+
+    sha256_hash = sha256(public_key_bytes).digest()
+    ripemd160 = new("ripemd160")
+    ripemd160.update(sha256_hash)
+    return ripemd160.digest()
+
+
+def derive_bitcoin_address(public_key_hex: str, mainnet: bool = True) -> str:
+    public_key_bytes = bytes.fromhex(public_key_hex)
+    h160 = hash160(public_key_bytes)
+    if mainnet:
+        version = b"\x00"
+    else:
+        version = b"\x6f"
+    return (version + h160).hex()
+
+
+def keccak256(data: bytes) -> bytes:
+    from Crypto.Hash import keccak
+
+    k = keccak.new(digest_bits=256)
+    k.update(data)
+    return k.digest()
+
+
+def derive_ethereum_address(public_key_hex: str) -> str:
+    public_key_bytes = bytes.fromhex(public_key_hex)
+    if public_key_bytes.startswith(b"\x04"):
+        public_key_bytes = public_key_bytes[1:]
+    hash = keccak256(public_key_bytes)
+    return "0x" + hash[-20:].hex()
+
+
+def derive_ed25519_address(private_key_int: int, crypto_type: str = "xrp") -> str:
+    from nacl import signing
+    from nacl.encoding import RawEncoder
+
+    private_key_bytes = private_key_int.to_bytes(32, "big")
+
+    if crypto_type == "solana":
+        keypair = signing.SigningKey(private_key_bytes)
+        return keypair.verify_key.encode(RawEncoder()).hex()[:44]
+    else:
+        keypair = signing.SigningKey(private_key_bytes)
+        public_key_bytes = keypair.verify_key.encode(RawEncoder())
+        return public_key_bytes.hex()
+
+
+def derive_litecoin_address(public_key_hex: str, mainnet: bool = True) -> str:
+    public_key_bytes = bytes.fromhex(public_key_hex)
+    h160 = hash160(public_key_bytes)
+    if mainnet:
+        version = b"\x30"
+    else:
+        version = b"\x6f"
+    return (version + h160).hex()
+
+
+def derive_dogecoin_address(public_key_hex: str, mainnet: bool = True) -> str:
+    public_key_bytes = bytes.fromhex(public_key_hex)
+    h160 = hash160(public_key_bytes)
+    if mainnet:
+        version = b"\x1e"
+    else:
+        version = b"\x6f"
+    return (version + h160).hex()
+
+
+def derive_avalanche_address(public_key_hex: str) -> str:
+    public_key_bytes = bytes.fromhex(public_key_hex)
+    if public_key_bytes.startswith(b"\x04"):
+        public_key_bytes = public_key_bytes[1:]
+    hash = keccak256(public_key_bytes)
+    return "0x" + hash[-20:].hex()
+
+# Criptocurrency registry containing metadata for supported cryptocurrencies, including their name, symbol, cryptographic algorithm, address derivation method, color for UI representation, and an icon.
+CRYPTO_REGISTRY = {
+    "bitcoin": {
+        "name": "Bitcoin",
+        "symbol": "BTC",
+        "algorithm": "secp256k1",
+        "derivation": "bitcoin",
+        "color": "#F7931A",
+        "icon": "₿",
+    },
+    "ethereum": {
+        "name": "Ethereum",
+        "symbol": "ETH",
+        "algorithm": "secp256k1",
+        "derivation": "ethereum",
+        "color": "#627EEA",
+        "icon": "Ξ",
+    },
+    "litecoin": {
+        "name": "Litecoin",
+        "symbol": "LTC",
+        "algorithm": "secp256k1",
+        "derivation": "litecoin",
+        "color": "#BFBBBB",
+        "icon": "Ł",
+    },
+    "dogecoin": {
+        "name": "Dogecoin",
+        "symbol": "DOGE",
+        "algorithm": "secp256k1",
+        "derivation": "dogecoin",
+        "color": "#C2A633",
+        "icon": "Ð",
+    },
+    "xrp": {
+        "name": "XRP",
+        "symbol": "XRP",
+        "algorithm": "ed25519",
+        "derivation": "xrp",
+        "color": "#23292F",
+        "icon": "✕",
+    },
+    "solana": {
+        "name": "Solana",
+        "symbol": "SOL",
+        "algorithm": "ed25519",
+        "derivation": "solana",
+        "color": "#9945FF",
+        "icon": "◎",
+    },
+    "cardano": {
+        "name": "Cardano",
+        "symbol": "ADA",
+        "algorithm": "ed25519",
+        "derivation": "cardano",
+        "color": "#0033AD",
+        "icon": "₳",
+    },
+    "avalanche": {
+        "name": "Avalanche",
+        "symbol": "AVAX",
+        "algorithm": "secp256k1",
+        "derivation": "avalanche",
+        "color": "#E84142",
+        "icon": "🔺",
+    },
+    "polkadot": {
+        "name": "Polkadot",
+        "symbol": "DOT",
+        "algorithm": "sr25519",
+        "derivation": "polkadot",
+        "color": "#E6007A",
+        "icon": "●",
+    },
+    "chainlink": {
+        "name": "Chainlink",
+        "symbol": "LINK",
+        "algorithm": "secp256k1",
+        "derivation": "ethereum",
+        "color": "#2A5ADA",
+        "icon": "⬡",
+    },
+    "polygon": {
+        "name": "Polygon",
+        "symbol": "MATIC",
+        "algorithm": "secp256k1",
+        "derivation": "ethereum",
+        "color": "#8247E5",
+        "icon": "⬡",
+    },
+    "uniswap": {
+        "name": "Uniswap",
+        "symbol": "UNI",
+        "algorithm": "secp256k1",
+        "derivation": "ethereum",
+        "color": "#FF007A",
+        "icon": "🦄",
+    },
+}
+
+# Function to generate a QR code for a given cryptocurrency address. The QR code is generated using the qrcode library and returned as a base64-encoded PNG image string, which can be easily embedded in web pages or mobile apps.
+def generate_qr_code(address: str, size: int = 200) -> str:
+    import qrcode
+    import io
+    import base64
+
+    qr = qrcode.QRCode(version=1, box_size=10, border=4)
+    qr.add_data(address)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+
+    buffer = io.BytesIO()
+    img.save(buffer, "PNG")
+    buffer.seek(0)
+    return base64.b64encode(buffer.getvalue()).decode()
+
+
+# Model representing a private key associated with a user. The private key is generated on demand using the get_private_key method, and the corresponding public key can be derived using the get_public_key method. The seed phrase can also be linked to the private key for recovery purposes.
+class PrivateKey(models.Model):
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name="private_key"
+    )
+    seed_phrase = models.ForeignKey(
+        SeedPhrase,
+        on_delete=models.CASCADE,
+        related_name="private_key",
+        null=True,
+        blank=True,
+    )
+    is_downloaded = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def get_private_key(self):
+        return generate_private_key()
+
+    def get_public_key(self):
+        private = self.get_private_key()
+        return derive_public_key(private)
+# Method to derive the public address for a given cryptocurrency based on the public key and the specific derivation method defined in the CRYPTO_REGISTRY. It supports multiple cryptocurrencies and their respective address formats.
+    def get_public_address(self, crypto: str = "bitcoin", mainnet: bool = True) -> str:
+        crypto = crypto.lower()
+        public_key = self.get_public_key()
+        private_key = self.get_private_key()
+
+        derivation = CRYPTO_REGISTRY.get(crypto, {}).get("derivation", "bitcoin")
+
+        if derivation == "ethereum":
+            return derive_ethereum_address(public_key)
+        elif derivation == "litecoin":
+            return derive_litecoin_address(public_key, mainnet)
+        elif derivation == "dogecoin":
+            return derive_dogecoin_address(public_key, mainnet)
+        elif derivation == "avalanche":
+            return derive_avalanche_address(public_key)
+        elif derivation in ["xrp", "solana", "cardano"]:
+            return derive_ed25519_address(private_key, derivation)
+        else:
+            return derive_bitcoin_address(public_key, mainnet)
+
+    def get_qr_code(self, address: str, size: int = 200) -> str:
+        return generate_qr_code(address, size)
+
+    def __str__(self):
+        return f"PrivateKey for {self.user.username}"
+
+
+# Models for Assets and Holdings
 class AssetType(models.TextChoices):
     CRYPTO = "crypto", "Cryptocurrency"
     STOCK = "stock", "Stock"
