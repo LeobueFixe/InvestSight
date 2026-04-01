@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Wallet - InvestSight{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>My Wallet</h1>
+    
+    {% if wallet %}
+        <div class="wallet-info">
+            <div class="stat">
+                <span class="label">Created</span>
+                <span class="value">{{ wallet.created_at }}</span>
+            </div>
+        </div>
+        <p>Your wallet is set up and ready.</p>
+    {% else %}
+        <div class="wallet-actions">
+            <p>You don't have a wallet yet. Create one or restore an existing wallet.</p>
+            <div class="action-buttons">
+                <a href="{% url 'wallet:create' %}" class="btn btn-primary">Create New Wallet</a>
+                <a href="{% url 'wallet:restore' %}" class="btn btn-secondary">Restore Wallet</a>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

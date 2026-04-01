@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Asset, Holding
+from .models import Asset, Holding, Wallet
 
 
 @admin.register(Asset)
@@ -14,3 +14,9 @@ class HoldingAdmin(admin.ModelAdmin):
     list_display = ["asset", "portfolio", "quantity", "avg_buy_price", "updated_at"]
     list_filter = ["asset__asset_type"]
     search_fields = ["asset__symbol"]
+
+
+@admin.register(Wallet)
+class WalletAdmin(admin.ModelAdmin):
+    list_display = ["user", "created_at", "updated_at"]
+    search_fields = ["user__username"]
