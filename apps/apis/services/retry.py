@@ -1,55 +1,68 @@
-import logging
+import random
+import time
 from functools import wraps
-from typing import Callable, TypeVar
+from apps.apis.services.logging import get_logger
+from apps.apis.settings import settings
 
-from tenacity import (
-    retry,
-    stop_after_attempt,
-    wait_exponential,
-    retry_if_exception_type,
-)
-
-from apps.apis.config import RETRY_MAX_ATTEMPTS
-from apps.apis.exceptions import ProviderUnavailable
+logger = get_logger("retry")
 
 
-# Standard Python logger for this module
-logger = logging.getLogger(__name__)
-
-
-# Generic type variable so the decorator preserves return types
-T = TypeVar("T")
-
-
-def with_retry(func: Callable[..., T]) -> Callable[..., T]:
+def with_retry(func):
     """
-    Decorator that automatically retries a function when it raises ProviderUnavailable.
-    Uses exponential backoff and stops after RETRY_MAX_ATTEMPTS.
+    Retry decorator with:
+    - exponential backoff
+    - jitter
+    - explicit 429 handling
+    - max attempts from config
+    - structured logging
     """
 
     @wraps(func)
-    @retry(
-        stop=stop_after_attempt(RETRY_MAX_ATTEMPTS),   # Max retry attempts
-        wait=wait_exponential(multiplier=1, min=1, max=10),  # Exponential backoff
-        retry=retry_if_exception_type(ProviderUnavailable),  # Only retry on this exception
-        reraise=True,  # Re-raise the final exception after retries
-    )
     def wrapper(*args, **kwargs):
-        # Log each attempt before calling the function
-        logger.info(
-            f"Attempting {func.__name__}",
-            extra={"function": func.__name__}
+        attempts = 0
+        max_attempts = settings.RETRY_MAX_ATTEMPTS  
+
+        while attempts < max_attempts:
+            try:
+                return func(*args, **kwargs)
+
+            except Exception as e:
+                attempts += 1
+
+                # Detect explicit 429
+                is_rate_limit = (
+                    hasattr(e, "response")
+                    and e.response is not None
+                    and getattr(e.response, "status_code", None) == 429
+                )
+
+                # Base delay: exponential backoff
+                delay = 0.5 * (2 ** attempts)
+
+                # Add jitter (0–200ms)
+                jitter = random.uniform(0, 0.2)
+
+                total_delay = delay + jitter
+
+                logger.warning(
+                    "retry_attempt",
+                    function=func.__name__,
+                    attempt=attempts,
+                    max_attempts=max_attempts,
+                    reason="rate_limit" if is_rate_limit else "exception",
+                    delay_seconds=round(total_delay, 3),
+                    error=str(e),
+                )
+
+                time.sleep(total_delay)
+
+        # After max attempts → rethrow
+        logger.error(
+            "retry_exhausted",
+            function=func.__name__,
+            max_attempts=max_attempts,
         )
 
-        try:
-            # Execute the wrapped function
-            return func(*args, **kwargs)
-
-        except ProviderUnavailable as e:
-            # Log that a retry will happen
-            logger.warning(
-                f"Retry needed for {func.__name__}: {e}"
-            )
-            raise  # Re-raise so tenacity can handle the retry
+        raise Exception(f"Max retry attempts reached for {func.__name__}")
 
     return wrapper
