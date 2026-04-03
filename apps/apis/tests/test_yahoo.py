@@ -5,7 +5,6 @@ from decimal import Decimal
 from apps.apis.services.yahoo import YahooFinanceService
 
 
-@pytest.mark.L3
 class TestYahooFinanceService:
     @patch("apps.apis.services.yahoo.YAHOO_FINANCE_ENABLED", True)
     @patch("apps.apis.services.yahoo.yfinance.Ticker")
