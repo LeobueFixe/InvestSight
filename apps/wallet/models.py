@@ -3,6 +3,7 @@ from decimal import Decimal
 from typing import Optional
 
 from django.db import models
+from django.conf import settings
 from django.contrib.auth.models import User
 
 from apps.apis.services.unified import get_price
@@ -2073,12 +2074,29 @@ WORDLIST = [
     "zoo",
 ]
 
-#Generate 12 random words from WORDLIST List
+
+class EncryptedField(models.BinaryField):
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("max_length", 512)
+        super().__init__(*args, **kwargs)
+
+    def deconstruct(self):
+        name, path, args, kwargs = super().deconstruct()
+        if "max_length" in kwargs:
+            del kwargs["max_length"]
+        return name, path, args, kwargs
+
+
+# Generate a random seed phrase of 12 words from the WORDLIST
 def generate_seed_phrase() -> str:
     words = [secrets.choice(WORDLIST) for _ in range(12)]
     return " ".join(words)
 
-# SeedPhrase Model
+
+# Model of the seed phrase associated with a user.
+# SECURITY: The actual seed phrase is NEVER stored in the database.
+# It is generated client-side in the browser using JavaScript.
+# This model only tracks whether the user has downloaded their seed phrase.
 class SeedPhrase(models.Model):
     user = models.OneToOneField(
         User, on_delete=models.CASCADE, related_name="seed_phrase"
@@ -2087,7 +2105,9 @@ class SeedPhrase(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def get_phrase(self):
-        return generate_seed_phrase()
+        raise NotImplementedError(
+            "Seed phrases are generated client-side for security."
+        )
 
     def __str__(self):
         return f"SeedPhrase for {self.user.username}"
@@ -2196,6 +2216,7 @@ def derive_avalanche_address(public_key_hex: str) -> str:
     hash = keccak256(public_key_bytes)
     return "0x" + hash[-20:].hex()
 
+
 # Criptocurrency registry containing metadata for supported cryptocurrencies, including their name, symbol, cryptographic algorithm, address derivation method, color for UI representation, and an icon.
 CRYPTO_REGISTRY = {
     "bitcoin": {
@@ -2296,6 +2317,7 @@ CRYPTO_REGISTRY = {
     },
 }
 
+
 # Function to generate a QR code for a given cryptocurrency address. The QR code is generated using the qrcode library and returned as a base64-encoded PNG image string, which can be easily embedded in web pages or mobile apps.
 def generate_qr_code(address: str, size: int = 200) -> str:
     import qrcode
@@ -2329,7 +2351,9 @@ class PrivateKey(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def get_private_key(self):
-        return generate_private_key()
+        raise NotImplementedError(
+            "Private keys are generated client-side for security."
+        )
 
     def get_public_key(self):
         private = self.get_private_key()
@@ -2434,3 +2458,17 @@ class Holding(models.Model):
 
     def __str__(self):
         return f"{self.asset.symbol} x {self.quantity}"
+
+
+class Wallet(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="wallet",
+    )
+    encrypted_seed = EncryptedField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Wallet for {self.user.username}"

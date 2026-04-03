@@ -103,6 +103,190 @@
     border: none;
     padding: 10px 20px;
     border-radius: 6px;
+SEED PHRASE:
+${currentSeedPhrase}
+Date: ${new Date().toISOString()}
+⚠️ KEEP THIS SECURE AND PRIVATE`;
+    downloadText(text, 'investsight_backup.txt');
+    closeShowPhraseModal();
+}
+
+// Generate Modal
+function showGenerateModal() {
+    const phrase = generateSeedPhrase();
+    document.getElementById('newPhraseDisplay').innerHTML = phrase.split(' ').map((w, i) => 
+        `<span style="display:inline-block;margin:3px;padding:5px 10px;background:#f8d7da;border-radius:4px;">${i+1}. ${w}</span>`
+    ).join('');
+    document.getElementById('confirmNewPhrase').checked = false;
+    document.getElementById('btnUseNewPhrase').disabled = true;
+    document.getElementById('generateModal').style.display = 'flex';
+    document.getElementById('countdownBox').style.display = 'block';
+    window.tempNewPhrase = phrase;
+    startGenerateCountdown();
+}
+
+let generateCountdownTimer;
+function startGenerateCountdown() {
+    let seconds = 120;
+    document.getElementById('countdown').textContent = seconds;
+    
+    generateCountdownTimer = setInterval(() => {
+        seconds--;
+        document.getElementById('countdown').textContent = seconds;
+        if (seconds <= 0) {
+            clearInterval(generateCountdownTimer);
+            closeGenerateModal();
+        }
+    }, 1000);
+}
+
+function closeGenerateModal() {
+    document.getElementById('generateModal').style.display = 'none';
+    clearInterval(generateCountdownTimer);
+}
+
+document.getElementById('confirmNewPhrase').addEventListener('change', function() {
+    document.getElementById('btnUseNewPhrase').disabled = !this.checked;
+});
+
+function downloadNewPhrase() {
+    const text = `InvestSight Wallet Backup
+SEED PHRASE:
+${window.tempNewPhrase}
+Date: ${new Date().toISOString()}
+⚠️ KEEP THIS SECURE AND PRIVATE`;
+    downloadText(text, 'investsight_backup.txt');
+}
+
+function useNewPhrase() {
+    currentSeedPhrase = window.tempNewPhrase;
+    masterSeed = mnemonicToSeed(currentSeedPhrase);
+    currentAddressIndex = 0;
+    
+    localStorage.setItem('investsight_hd_seed', currentSeedPhrase);
+    localStorage.setItem('investsight_hd_index', '0');
+    
+    closeGenerateModal();
+    document.getElementById('setupSection').style.display = 'none';
+    document.getElementById('walletSection').style.display = 'block';
+    displayAddress();
+    
+    // Prompt to set password
+    setTimeout(() => {
+        const password = prompt('Set a wallet password (required to view seed phrase):');
+        if (password) {
+            const hash = CryptoJS.SHA256(password + currentSeedPhrase).toString();
+            localStorage.setItem('investsight_pwd_hash', hash);
+            alert('Password set!');
+        }
+    }, 500);
+}
+
+// Import Modal
+function showImportModal() {
+    document.getElementById('importPhraseInput').value = '';
+    document.getElementById('importError').style.display = 'none';
+    document.getElementById('importModal').style.display = 'flex';
+}
+
+function closeImportModal() {
+    document.getElementById('importModal').style.display = 'none';
+}
+
+function importPhrase() {
+    const input = document.getElementById('importPhraseInput').value.trim().toLowerCase();
+    const words = input.split(/\s+/).filter(w => w.length > 0);
+    
+    if (words.length !== 12 && words.length !== 24) {
+        document.getElementById('importError').textContent = 'Seed phrase must be 12 or 24 words.';
+        document.getElementById('importError').style.display = 'block';
+        return;
+    }
+    
+    currentSeedPhrase = words.join(' ');
+    masterSeed = mnemonicToSeed(currentSeedPhrase);
+    currentAddressIndex = 0;
+    
+    localStorage.setItem('investsight_hd_seed', currentSeedPhrase);
+    localStorage.setItem('investsight_hd_index', '0');
+    localStorage.removeItem('investsight_pwd_hash'); // Clear old password
+    
+    closeImportModal();
+    document.getElementById('setupSection').style.display = 'none';
+    document.getElementById('walletSection').style.display = 'block';
+    displayAddress();
+}
+
+function showNewAddressModal() {
+    const config = CRYPTO_CONFIG[currentCrypto];
+    document.getElementById('newAddressModal').style.display = 'flex';
+}
+
+function closeNewAddressModal() {
+    document.getElementById('newAddressModal').style.display = 'none';
+}
+
+function generateNewAddress() {
+    currentAddressIndex++;
+    localStorage.setItem('investsight_hd_index', currentAddressIndex.toString());
+    displayAddress();
+    closeNewAddressModal();
+}
+
+function downloadBackupSecure() {
+    const text = `InvestSight Wallet Backup
+SEED PHRASE:
+${currentSeedPhrase}
+Address Index: ${currentAddressIndex}
+Date: ${new Date().toISOString()}
+⚠️ KEEP THIS SECURE AND PRIVATE`;
+    downloadText(text, 'investsight_backup.txt');
+    closeBackupModal();
+}
+
+function closeBackupModal() {
+    document.getElementById('backupModal').style.display = 'none';
+}
+
+function copyAddress() {
+    const address = document.getElementById('addressDisplay').textContent;
+    navigator.clipboard.writeText(address);
+    alert('Address copied!');
+}
+
+function downloadQR() {
+    const qrImg = document.querySelector('#qrCode img');
+    if (qrImg) {
+        const link = document.createElement('a');
+        link.href = qrImg.src;
+        link.download = `${currentCrypto}_address_${currentAddressIndex}.png`;
+        link.click();
+    }
+}
+
+function clearWallet() {
+    if (confirm('Are you sure? Make sure you have your seed phrase saved!')) {
+        localStorage.removeItem('investsight_hd_seed');
+        localStorage.removeItem('investsight_hd_index');
+        localStorage.removeItem('investsight_pwd_hash');
+        currentSeedPhrase = '';
+        masterSeed = '';
+        currentAddressIndex = 0;
+        document.getElementById('setupSection').style.display = 'block';
+        document.getElementById('walletSection').style.display = 'none';
+    }
+}
+
+function downloadText(text, filename) {
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
     font-size: 14px;
     cursor: pointer;
     transition: background 0.2s;

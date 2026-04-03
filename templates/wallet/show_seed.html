@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Save Seed Phrase - InvestSight{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Save Your Seed Phrase</h1>
+    
+    <div class="alert alert-warning">
+        <strong>Important:</strong> Write down these 12 words and store them securely. This is the ONLY way to recover your wallet if you lose your password.
+    </div>
+    
+    <div class="seed-phrase-box">
+        {% with words=seed_phrase.split %}
+            {% for word in words %}
+                <span class="word">{{ forloop.counter }}. {{ word }}</span>
+            {% endfor %}
+        {% endwith %}
+    </div>
+    
+    <form method="post" action="{% url 'wallet:wallet' %}">
+        {% csrf_token %}
+        <div class="checkbox-group">
+            <label>
+                <input type="checkbox" id="confirm_backup" required>
+                I have securely stored my seed phrase
+            </label>
+        </div>
+        <button type="submit" class="btn btn-primary">Continue to Wallet</button>
+    </form>
+</div>
+{% endblock %}

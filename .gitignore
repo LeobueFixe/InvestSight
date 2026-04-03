@@ -24,3 +24,9 @@ media/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Dev Container
+.devcontainer
+# Local agent notes
+agente1
+agente1.md

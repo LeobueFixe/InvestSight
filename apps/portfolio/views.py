@@ -9,6 +9,7 @@ from apps.portfolio.models import Portfolio
 from apps.wallet.models import SeedPhrase, PrivateKey
 
 
+
 # This view handles user signup. It uses Django's built-in UserCreationForm to create a new user. If the form is valid, it saves the user, logs them in, and redirects to the homepage. If the request method is GET, it simply renders the signup form.
 def signup(request):
     if request.method == "POST":
@@ -78,6 +79,7 @@ def import_wallet_step2(request):
         return redirect("portfolio:import_step3")
     return render(request, "wallet/import/step2.html")
 
+
 # This view handles the third step of the wallet import process. It checks if the request method is POST and retrieves the password and confirm password from the form. It validates that the passwords match and meet a minimum length requirement. If there are any validation errors, it renders the step 3 template with an error message. If the passwords are valid, it saves the password in the session and redirects to step 4 for confirmation.
 def import_wallet_step3(request):
     if request.method == "POST":
@@ -124,6 +126,7 @@ def import_wallet_step4(request):
         {"seed_phrase": seed_phrase, "word_count": word_count},
     )
 
+
 # This view handles the completion of the wallet import process. It retrieves the seed phrase and password from the session, checks if they are valid, and if the user is authenticated, it updates or creates a SeedPhrase object for the user with the imported seed phrase. Finally, it redirects to the wallet page.
 def import_wallet_complete(request):
     if request.method == "POST":
@@ -135,13 +138,12 @@ def import_wallet_complete(request):
                 seed_phrase_obj, created = SeedPhrase.objects.get_or_create(
                     user=request.user
                 )
-                seed_phrase_obj.is_imported = True
-                seed_phrase_obj.imported_phrase = seed_phrase
                 seed_phrase_obj.save()
 
         return redirect("portfolio:wallet")
 
     return redirect("portfolio:index")
+
 
 # This view displays a list of supported cryptocurrencies for receiving funds. It retrieves the cryptocurrency information from the CRYPTO_REGISTRY and renders a template that lists all available cryptocurrencies along with their metadata, such as name, symbol, and icon.
 @login_required
