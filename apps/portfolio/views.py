@@ -3,9 +3,11 @@ from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import login
+from django.contrib import messages
 
 from apps.portfolio.models import Portfolio
-from apps.wallet.models import SeedPhrase
+from apps.wallet.models import SeedPhrase, PrivateKey
+
 
 
 # This view handles user signup. It uses Django's built-in UserCreationForm to create a new user. If the form is valid, it saves the user, logs them in, and redirects to the homepage. If the request method is GET, it simply renders the signup form.
@@ -14,6 +16,7 @@ def signup(request):
         form = UserCreationForm(request.POST)
         if form.is_valid():
             user = form.save()
+            Portfolio.objects.create(name="My Portfolio", user=user)
             login(request, user)
             return redirect("/")
     else:
@@ -21,13 +24,14 @@ def signup(request):
     return render(request, "registration/signup.html", {"form": form})
 
 
-#
+# Show the dashboard of the user when he is logged in
 @login_required
 def index(request):
     portfolios = Portfolio.objects.filter(user=request.user)
     return render(request, "portfolio/dashboard.html", {"portfolios": portfolios})
 
 
+# Shows a specific portfolio of the user.It needs to be authenticated!
 @login_required
 def detail(request, portfolio_id):
     portfolio = get_object_or_404(Portfolio, id=portfolio_id, user=request.user)
@@ -150,27 +154,44 @@ def receive_crypto_list(request):
         request, "wallet/crypto_list.html", {"cryptos": CRYPTO_REGISTRY.items()}
     )
 
-
-# This view handles the page for receiving cryptocurrency. Address generation is fully client-side from the user's local seed phrase; the backend only provides crypto metadata and the BIP39 wordlist.
+# This view handles the page for receiving cryptocurrency. It checks if the user has a private key and creates one if it doesn't exist. It then checks if the requested cryptocurrency is supported in the CRYPTO_REGISTRY. If it is, it generates the public address and QR code for that cryptocurrency and renders the receive page with the relevant information. If the cryptocurrency is not supported, it redirects to the list of supported cryptocurrencies.
 @login_required
 def receive_crypto(request, crypto: str = "bitcoin"):
-    import json
+    from apps.wallet.models import CRYPTO_REGISTRY
 
-    from apps.wallet.models import CRYPTO_REGISTRY, WORDLIST
+    private_key = getattr(request.user, "private_key", None)
+    if not private_key:
+        private_key = PrivateKey.objects.create(user=request.user)
 
     crypto = crypto.lower()
 
     if crypto not in CRYPTO_REGISTRY:
         return redirect("portfolio:receive_crypto_list")
 
+    public_address = private_key.get_public_address(crypto)
+    qr_code = private_key.get_qr_code(public_address)
     crypto_info = CRYPTO_REGISTRY[crypto]
 
     return render(
         request,
         "wallet/receive.html",
         {
+            "public_address": public_address,
+            "qr_code": qr_code,
             "crypto": crypto,
             "crypto_info": crypto_info,
-            "wordlist": json.dumps(WORDLIST),
         },
+# Shows the user's wallet!
+@login_required
+def wallet(request):
+    holdings = Holding.objects.filter(portfolio__user=request.user).select_related(
+        "asset", "portfolio"
+    )
+    seed_phrase = getattr(request.user, "seed_phrase", None)
+    if not seed_phrase:
+        seed_phrase = SeedPhrase.objects.create(user=request.user)
+    return render(
+        request,
+        "portfolio/wallet.html",
+        {"holdings": holdings, "seed_phrase": seed_phrase},
     )
