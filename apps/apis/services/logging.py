@@ -5,8 +5,8 @@ from contextlib import contextmanager
 from typing import Optional
 
 import structlog
-
-from apps.apis.config import LOG_LEVEL
+from apps.apis.settings import settings
+settings.LOG_LEVEL
 
 
 # Configure structlog to output structured JSON logs

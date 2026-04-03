@@ -1,72 +1,141 @@
 import yfinance
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, Dict, List
+from pathlib import Path
+import json
 
-from apps.apis.config import YAHOO_FINANCE_ENABLED
 from apps.apis.exceptions import ProviderUnavailable
 from apps.apis.services.base import PriceResult, PriceService
+from apps.apis.services.retry import with_retry
+from apps.apis.services.logging import get_logger, log_api_call
+from apps.apis.settings import settings
+
+DATA_FILE = Path("apps/apis/data/prices.json")
+logger = get_logger("yahoo")
 
 
-# List of stock symbols supported by this provider
-STOCK_SYMBOLS = ["AAPL", "TSLA"]
+
+def load_yahoo_ids() -> Dict[str, str]:
+    """
+    Loads Yahoo Finance symbol → ticker mapping from data/prices.json.
+    """
+    if not DATA_FILE.exists():
+        return {}
+
+    try:
+        with open(DATA_FILE, "r") as f:
+            data = json.load(f)
+    except json.JSONDecodeError:
+        return {}
+
+    return data.get("yahoo_ids", {})
+
 
 
 class YahooFinanceService(PriceService):
     """
-    Price provider that fetches stock prices using the yfinance library.
-    Only works if YAHOO_FINANCE_ENABLED is True.
+    Price provider using yfinance.
+    Supports:
+      - current price
+      - all prices
+      - historical data
     """
 
+
+    @with_retry
     def get_price(self, symbol: str) -> Optional[PriceResult]:
-        # If Yahoo Finance integration is disabled, skip provider
-        if not YAHOO_FINANCE_ENABLED:
+        if not settings.YAHOO_FINANCE_ENABLED:
+            logger.info("yahoo_disabled", symbol=symbol)
             return None
 
-        # Normalize symbol
         symbol = symbol.upper()
+        yahoo_ids = load_yahoo_ids()
 
-        # If the symbol is not supported, return None
-        if symbol not in STOCK_SYMBOLS:
+        if symbol not in yahoo_ids:
+            logger.warning("yahoo_symbol_not_found", symbol=symbol)
             return None
 
-        try:
-            # Fetch ticker data from Yahoo Finance
-            ticker = yfinance.Ticker(symbol)
-            info = ticker.info
+        ticker_symbol = yahoo_ids[symbol]
 
-            # Try to get the current price; fallback to previous close
-            price = info.get("currentPrice") or info.get("regularMarketPreviousClose")
-            if price is None:
-                return None
+        with log_api_call(symbol, "yahoo"):
+            try:
+                ticker = yfinance.Ticker(ticker_symbol)
+                info = ticker.info
 
-            # Build and return a PriceResult object
-            return PriceResult(
-                symbol=symbol,
-                price=Decimal(str(price)),
-                currency="USD",
-                provider="yahoo",
-                timestamp=datetime.utcnow(),
-            )
+                price = info.get("currentPrice") or info.get("regularMarketPreviousClose")
+                if price is None:
+                    logger.error("yahoo_price_missing", symbol=symbol)
+                    return None
 
-        except Exception as e:
-            # Wrap any error in a ProviderUnavailable exception
-            raise ProviderUnavailable(f"Yahoo Finance API failed: {e}")
+                return PriceResult(
+                    symbol=symbol,
+                    price=Decimal(str(price)),
+                    currency="USD",
+                    provider="yahoo",
+                    timestamp=datetime.utcnow(),
+                )
 
-    def get_all_prices(self) -> dict[str, PriceResult]:
-        """
-        Returns prices for all supported stock symbols.
-        Skips provider entirely if disabled.
-        """
-        if not YAHOO_FINANCE_ENABLED:
+            except Exception as e:
+                logger.error("yahoo_request_exception", symbol=symbol, error=str(e))
+                raise ProviderUnavailable(f"Yahoo Finance API failed: {e}")
+
+
+    @with_retry
+    def get_all_prices(self) -> Dict[str, PriceResult]:
+        if not settings.YAHOO_FINANCE_ENABLED:
+            logger.info("yahoo_disabled_all_prices")
             return {}
 
+        yahoo_ids = load_yahoo_ids()
         result = {}
 
-        # Loop through supported symbols and fetch each price
-        for symbol in STOCK_SYMBOLS:
-            price_result = self.get_price(symbol)
-            if price_result:
-                result[symbol] = price_result
+        with log_api_call("ALL", "yahoo"):
+            for symbol in yahoo_ids:
+                try:
+                    price_result = self.get_price(symbol)
+                    if price_result:
+                        result[symbol] = price_result
+                except Exception as e:
+                    logger.error("yahoo_symbol_failed", symbol=symbol, error=str(e))
 
-        return result
+            logger.info("yahoo_all_prices_fetched", count=len(result))
+            return result
+
+
+    def get_history(self, symbol: str, days: int = 30) -> List[Dict]:
+        """
+        Returns historical daily close prices for the last N days.
+        """
+        if not settings.YAHOO_FINANCE_ENABLED:
+            logger.info("yahoo_disabled_history", symbol=symbol)
+            return []
+
+        symbol = symbol.upper()
+        yahoo_ids = load_yahoo_ids()
+
+        if symbol not in yahoo_ids:
+            logger.warning("yahoo_symbol_not_found_history", symbol=symbol)
+            return []
+
+        ticker_symbol = yahoo_ids[symbol]
+
+        with log_api_call(symbol, "yahoo_history"):
+            try:
+                ticker = yfinance.Ticker(ticker_symbol)
+                df = ticker.history(period=f"{days}d")
+
+                history = [
+                    {
+                        "timestamp": int(row.name.timestamp() * 1000),
+                        "price": float(row["Close"]),
+                    }
+                    for _, row in df.iterrows()
+                ]
+
+                logger.info("yahoo_history_fetched", symbol=symbol, points=len(history))
+                return history
+
+            except Exception as e:
+                logger.error("yahoo_history_error", symbol=symbol, error=str(e))
+                raise ProviderUnavailable(f"Yahoo Finance history failed: {e}")

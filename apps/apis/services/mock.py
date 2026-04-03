@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, Dict, List
 
 from apps.apis.services.base import PriceResult, PriceService
 
@@ -20,15 +20,13 @@ class MockPriceService(PriceService):
     Useful for development, testing, or when external providers are unavailable.
     """
 
+
     def get_price(self, symbol: str) -> Optional[PriceResult]:
-        # Normalize symbol to uppercase
         symbol = symbol.upper()
 
-        # If the symbol is not in the mock price list, return None
         if symbol not in MOCK_PRICES:
             return None
 
-        # Return a PriceResult with the mock price
         return PriceResult(
             symbol=symbol,
             price=MOCK_PRICES[symbol],
@@ -37,9 +35,36 @@ class MockPriceService(PriceService):
             timestamp=datetime.utcnow(),
         )
 
-    def get_all_prices(self) -> dict[str, PriceResult]:
+
+    def get_all_prices(self) -> Dict[str, PriceResult]:
+        return {
+            symbol: self.get_price(symbol)
+            for symbol in MOCK_PRICES
+        }
+
+
+    def get_history(self, symbol: str, days: int = 30) -> List[Dict]:
         """
-        Returns a dictionary of PriceResult objects for all mock symbols.
+        Returns a simple mock history:
+        - last N days
+        - price varies slightly each day
         """
-        # Build a dict by calling get_price() for each symbol
-        return {symbol: self.get_price(symbol) for symbol in MOCK_PRICES}
+        symbol = symbol.upper()
+
+        if symbol not in MOCK_PRICES:
+            return []
+
+        base_price = MOCK_PRICES[symbol]
+        now = datetime.utcnow()
+
+        history = []
+        for i in range(days):
+            ts = int((now - timedelta(days=i)).timestamp() * 1000)
+            price = float(base_price * Decimal(1 + (i * 0.001)))  # small variation
+
+            history.append({
+                "timestamp": ts,
+                "price": price,
+            })
+
+        return list(reversed(history))  # oldest → newest
