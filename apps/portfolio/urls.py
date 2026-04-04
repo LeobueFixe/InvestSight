@@ -21,4 +21,5 @@ urlpatterns = [
     ),
     path("", views.index, name="index"),
     path("<int:portfolio_id>/", views.detail, name="detail"),
+    path("<int:portfolio_id>/add-holding/", views.add_holding, name="add_holding"),
 ]
