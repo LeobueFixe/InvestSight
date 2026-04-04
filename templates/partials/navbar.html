@@ -1,13 +1,12 @@
 <nav class="navbar">
     <div class="container">
-        <a href="/" class="brand">InvestSight</a>
+        <a href="/" class="brand">Invest<span>Sight</span></a>
         <ul class="nav-links">
             <li><a href="{% url 'portfolio:index' %}">Portfolios</a></li>
             <li><a href="{% url 'portfolio:wallet' %}">Wallet</a></li>
             {% if user.is_authenticated %}
-                <li><a href="/api/docs">API Docs</a></li>
                 <li>
-                    <form method="post" action="{% url 'logout' %}">
+                    <form method="post" action="{% url 'logout' %}" style="display:inline;">
                         {% csrf_token %}
                         <button type="submit">Logout</button>
                     </form>

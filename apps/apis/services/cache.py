@@ -48,6 +48,13 @@ def get_price_with_cache(symbol: str, target_currency: str = "USD") -> PriceResu
     return None
 
 
+def get_cached_price(symbol: str) -> PriceResult | None:
+    """Return the cached PriceResult for a symbol (USD), or None on miss."""
+    symbol = symbol.upper()
+    cache_key = f"price:{symbol}:USD"
+    return cache.get(cache_key)
+
+
 def get_all_prices_with_cache(target_currency: str = "USD") -> dict[str, PriceResult]:
     """
     Hybrid cache for all prices.

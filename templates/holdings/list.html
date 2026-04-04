@@ -1,3 +1,5 @@
+<!-- Crypto -->
+<p class="section-title">Crypto</p>
 <table class="holdings-table">
     <thead>
         <tr>
@@ -11,24 +13,55 @@
         </tr>
     </thead>
     <tbody>
-        {% for holding in holdings %}
+        {% for holding in holdings %}{% if holding.asset.asset_type == "crypto" %}
         <tr>
-            <td>{{ holding.asset.symbol }}</td>
-            <td>{{ holding.quantity }}</td>
-            <td>${{ holding.avg_buy_price }}</td>
-            <td>${{ holding.total_cost }}</td>
-            <td>${{ holding.current_value }}</td>
+            <td><span class="symbol-badge"><span class="dot"></span>{{ holding.asset.symbol }}</span></td>
+            <td>{{ holding.quantity|floatformat:2 }}</td>
+            <td>${{ holding.avg_buy_price|floatformat:2 }}</td>
+            <td>${{ holding.total_cost|floatformat:2 }}</td>
+            <td>${{ holding.current_value|floatformat:2 }}</td>
             <td class="{% if holding.profit_loss >= 0 %}positive{% else %}negative{% endif %}">
-                ${{ holding.profit_loss }}
+                ${{ holding.profit_loss|floatformat:2 }}
             </td>
             <td class="{% if holding.pnl_pct >= 0 %}positive{% else %}negative{% endif %}">
-                {{ holding.pnl_pct }}%
+                {{ holding.pnl_pct|floatformat:2 }}%
             </td>
         </tr>
-        {% empty %}
-        <tr>
-            <td colspan="7">No holdings yet.</td>
-        </tr>
+        {% endif %}{% empty %}
+        <tr><td colspan="7" class="empty">No holdings yet.</td></tr>
         {% endfor %}
+    </tbody>
+</table>
+
+<!-- Stock -->
+<p class="section-title">Stocks</p>
+<table class="holdings-table">
+    <thead>
+        <tr>
+            <th>Asset</th>
+            <th>Quantity</th>
+            <th>Avg Buy Price</th>
+            <th>Total Cost</th>
+            <th>Current Value</th>
+            <th>P&L</th>
+            <th>P&L %</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for holding in holdings %}{% if holding.asset.asset_type == "stock" %}
+        <tr>
+            <td><span class="symbol-badge"><span class="dot dot-stock"></span>{{ holding.asset.symbol }}</span></td>
+            <td>{{ holding.quantity|floatformat:2 }}</td>
+            <td>${{ holding.avg_buy_price|floatformat:2 }}</td>
+            <td>${{ holding.total_cost|floatformat:2 }}</td>
+            <td>${{ holding.current_value|floatformat:2 }}</td>
+            <td class="{% if holding.profit_loss >= 0 %}positive{% else %}negative{% endif %}">
+                ${{ holding.profit_loss|floatformat:2 }}
+            </td>
+            <td class="{% if holding.pnl_pct >= 0 %}positive{% else %}negative{% endif %}">
+                {{ holding.pnl_pct|floatformat:2 }}%
+            </td>
+        </tr>
+        {% endif %}{% endfor %}
     </tbody>
 </table>

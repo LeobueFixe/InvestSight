@@ -1,11 +1,15 @@
 {% extends "base.html" %}
 
-{% block title %}Portfolio Dashboard - InvestSight{% endblock %}
+{% block title %}Dashboard - InvestSight{% endblock %}
 
 {% block content %}
 <div class="container">
-    <h1>My Portfolios</h1>
-    
+    <div class="page-header">
+        <div>
+            <h1>My Portfolios</h1>
+        </div>
+    </div>
+
     <div class="portfolio-list">
         {% for portfolio in portfolios %}
         <div class="portfolio-card">
@@ -13,23 +17,24 @@
             <div class="portfolio-stats">
                 <div class="stat">
                     <span class="label">Total Invested</span>
-                    <span class="value">${{ portfolio.total_invested }}</span>
+                    <span class="value">${{ portfolio.total_invested|floatformat:2 }}</span>
                 </div>
                 <div class="stat">
                     <span class="label">Current Value</span>
-                    <span class="value">${{ portfolio.current_value }}</span>
+                    <span class="value">${{ portfolio.current_value|floatformat:2 }}</span>
                 </div>
                 <div class="stat">
                     <span class="label">P&L</span>
-                    <span class="value {% if portfolio.total_pnl >= 0 %}positive{% else %}negative{% endif %}">
-                        ${{ portfolio.total_pnl }}
+                    <span class="value {% if portfolio.total_pnl.absolute >= 0 %}positive{% else %}negative{% endif %}">
+                        ${{ portfolio.total_pnl.absolute|floatformat:2 }}
+                        <small>({{ portfolio.total_pnl.percentage|floatformat:2 }}%)</small>
                     </span>
                 </div>
             </div>
-            <a href="{% url 'portfolio:detail' portfolio.id %}" class="btn">View Details</a>
+            <a href="{% url 'portfolio:detail' portfolio.id %}" class="btn">View Details →</a>
         </div>
         {% empty %}
-        <p>No portfolios yet. Create one to get started.</p>
+        <p class="empty">No portfolios yet.</p>
         {% endfor %}
     </div>
 </div>

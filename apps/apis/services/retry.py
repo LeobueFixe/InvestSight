@@ -6,6 +6,8 @@ from apps.apis.settings import settings
 
 logger = get_logger("retry")
 
+RETRY_MAX_ATTEMPTS = settings.RETRY_MAX_ATTEMPTS
+
 
 def with_retry(func):
     """
@@ -20,7 +22,7 @@ def with_retry(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         attempts = 0
-        max_attempts = settings.RETRY_MAX_ATTEMPTS  
+        max_attempts = RETRY_MAX_ATTEMPTS
 
         while attempts < max_attempts:
             try:

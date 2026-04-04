@@ -10,7 +10,7 @@ from decimal import Decimal, InvalidOperation
 import json
 
 from apps.portfolio.models import Portfolio
-from apps.wallet.models import SeedPhrase, WalletTransaction, WalletTransactionType
+from apps.wallet.models import Asset, Holding, SeedPhrase, WalletTransaction, WalletTransactionType
 from apps.apis.services.unified import get_price as get_live_price
 
 
@@ -40,6 +40,25 @@ def detail(request, portfolio_id):
     portfolio = get_object_or_404(Portfolio, id=portfolio_id, user=request.user)
     holdings = portfolio.holdings.select_related("asset")
     allocation = portfolio.get_allocation()
+    assets = Asset.objects.all().order_by("symbol")
+
+    from apps.apis.settings import settings as api_settings
+    registry = api_settings.PROVIDER_REGISTRY
+    crypto_symbols = sorted(s for s, p in registry.items() if p == "coingecko")
+    stock_symbols = sorted(s for s, p in registry.items() if p == "yahoo")
+
+    from decimal import Decimal
+    crypto_value = Decimal("0")
+    stock_value = Decimal("0")
+    for h in holdings:
+        v = h.current_value
+        if v is None:
+            continue
+        if h.asset.asset_type == "crypto":
+            crypto_value += v
+        else:
+            stock_value += v
+
     return render(
         request,
         "portfolio/detail.html",
@@ -47,8 +66,64 @@ def detail(request, portfolio_id):
             "portfolio": portfolio,
             "holdings": holdings,
             "allocation": allocation,
+            "assets": assets,
+            "crypto_symbols": crypto_symbols,
+            "stock_symbols": stock_symbols,
+            "crypto_value": crypto_value,
+            "stock_value": stock_value,
         },
     )
+
+
+@login_required
+@require_POST
+def add_holding(request, portfolio_id):
+    portfolio = get_object_or_404(Portfolio, id=portfolio_id, user=request.user)
+
+    symbol = request.POST.get("symbol", "").strip().upper()
+    name = request.POST.get("name", "").strip()
+    asset_type = request.POST.get("asset_type", "crypto")
+    quantity = request.POST.get("quantity", "").strip()
+    avg_buy_price = request.POST.get("avg_buy_price", "").strip()
+
+    errors = []
+    if not symbol:
+        errors.append("Symbol is required.")
+    if not quantity:
+        errors.append("Quantity is required.")
+    if not avg_buy_price:
+        errors.append("Average buy price is required.")
+
+    if not errors:
+        try:
+            qty = Decimal(quantity)
+            price = Decimal(avg_buy_price)
+        except InvalidOperation:
+            errors.append("Quantity and price must be valid numbers.")
+
+    if errors:
+        holdings = portfolio.holdings.select_related("asset")
+        allocation = portfolio.get_allocation()
+        assets = Asset.objects.all().order_by("symbol")
+        return render(request, "portfolio/detail.html", {
+            "portfolio": portfolio,
+            "holdings": holdings,
+            "allocation": allocation,
+            "assets": assets,
+            "errors": errors,
+        })
+
+    asset, _ = Asset.objects.get_or_create(
+        symbol=symbol,
+        defaults={"name": name or symbol, "asset_type": asset_type},
+    )
+    Holding.objects.create(
+        portfolio=portfolio,
+        asset=asset,
+        quantity=qty,
+        avg_buy_price=price,
+    )
+    return redirect("portfolio:detail", portfolio_id=portfolio_id)
 
 
 @login_required

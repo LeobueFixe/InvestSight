@@ -34,3 +34,14 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "--strict-markers -v"
+markers = [
+    "L1: Mock price service tests",
+    "L2: CoinGecko service tests",
+    "L3: Yahoo Finance service tests",
+    "L4: Unified price service tests",
+    "L5: Cache service tests",
+    "L6: Error handling tests",
+    "L7: Retry logic tests",
+    "L8: Logging tests",
+    "L9: Configuration tests",
+]

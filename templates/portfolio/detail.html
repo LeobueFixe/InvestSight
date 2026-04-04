@@ -4,36 +4,192 @@
 
 {% block content %}
 <div class="container">
-    <h1>{{ portfolio.name }}</h1>
-    
+
+    <!-- Header -->
+    <div class="page-header">
+        <div>
+            <h1>{{ portfolio.name }}</h1>
+        </div>
+        <a href="{% url 'portfolio:index' %}" class="btn btn-ghost">← Back</a>
+    </div>
+
+    <!-- Summary cards -->
     <div class="portfolio-summary">
         <div class="stat-card">
             <span class="label">Total Invested</span>
-            <span class="value">${{ portfolio.total_invested }}</span>
+            <span class="value">${{ portfolio.total_invested|floatformat:2 }}</span>
         </div>
         <div class="stat-card">
             <span class="label">Current Value</span>
-            <span class="value">${{ portfolio.current_value }}</span>
+            <span class="value">${{ portfolio.current_value|floatformat:2 }}</span>
         </div>
         <div class="stat-card">
             <span class="label">Total P&L</span>
-            <span class="value {% if portfolio.total_pnl >= 0 %}positive{% else %}negative{% endif %}">
-                ${{ portfolio.total_pnl }}
+            <span class="value {% if portfolio.total_pnl.absolute >= 0 %}positive{% else %}negative{% endif %}">
+                ${{ portfolio.total_pnl.absolute|floatformat:2 }}
+            </span>
+            <span class="sub-value {% if portfolio.total_pnl.percentage >= 0 %}positive{% else %}negative{% endif %}">
+                {{ portfolio.total_pnl.percentage|floatformat:2 }}%
             </span>
         </div>
     </div>
-    
-    <h2>Holdings</h2>
+
+    <!-- Holdings -->
     {% include 'holdings/list.html' %}
-    
-    <h2>Allocation</h2>
-    <div class="allocation-chart">
-        {% for item in allocation %}
-        <div class="allocation-item">
-            <span class="asset">{{ item.asset }}</span>
-            <span class="pct">{{ item.pct_of_portfolio }}%</span>
-        </div>
-        {% endfor %}
+
+    <!-- Add Holding form -->
+    <p class="section-title">Add Holding</p>
+    {% if errors %}
+    <div class="alert-box">
+        <ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
     </div>
+    {% endif %}
+    <div class="form-card">
+        <form method="post" action="{% url 'portfolio:add_holding' portfolio.id %}">
+            {% csrf_token %}
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Symbol</label>
+                    <select name="symbol" id="holding-symbol" required onchange="fetchLivePrice(this.value); updateAssetType(this)">
+                        <option value="">— choose —</option>
+                        <optgroup label="Crypto (CoinGecko)">
+                            {% for s in crypto_symbols %}<option value="{{ s }}" data-type="crypto">{{ s }}</option>{% endfor %}
+                        </optgroup>
+                        <optgroup label="Stocks (Yahoo Finance)">
+                            {% for s in stock_symbols %}<option value="{{ s }}" data-type="stock">{{ s }}</option>{% endfor %}
+                        </optgroup>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Name <span style="opacity:.5">(optional)</span></label>
+                    <input type="text" name="name" placeholder="Bitcoin">
+                </div>
+                <div class="form-group">
+                    <label>Type</label>
+                    <select name="asset_type" id="asset-type-select">
+                        <option value="crypto">Crypto</option>
+                        <option value="stock">Stock</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Quantity</label>
+                    <input type="number" name="quantity" placeholder="0.00" step="any" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label>Avg Buy Price (USD)</label>
+                    <input type="number" name="avg_buy_price" id="avg-buy-price" placeholder="—" step="any" min="0" required>
+                    <span class="price-hint" id="price-feedback"></span>
+                </div>
+                <div class="form-group">
+                    <label>&nbsp;</label>
+                    <button type="submit" class="btn">Add Holding</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Allocation -->
+    <p class="section-title">Allocation</p>
+    <div style="display:grid; grid-template-columns: 260px 1fr; gap:2rem; align-items:center; margin-bottom:2rem;">
+        <div style="position:relative;">
+            <canvas id="allocationChart" width="260" height="260"></canvas>
+            <div id="chartCenter" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;">
+                <div style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;">Portfolio</div>
+                <div style="font-size:1.1rem;font-weight:700;">${{ portfolio.current_value|floatformat:2 }}</div>
+            </div>
+        </div>
+        <div class="allocation-chart">
+            {% for item in allocation %}
+            <div class="allocation-item">
+                <span class="asset-name">{{ item.asset }}</span>
+                <div class="bar-wrap"><div class="bar" data-pct="{{ item.pct_of_portfolio }}"></div></div>
+                <span class="pct">{{ item.pct_of_portfolio }}%</span>
+            </div>
+            {% empty %}
+            <p class="empty">Add holdings to see allocation.</p>
+            {% endfor %}
+        </div>
+    </div>
+
 </div>
+
+<script>
+// Set allocation bar widths from data-pct attribute
+document.querySelectorAll('.bar[data-pct]').forEach(function(el) {
+    el.style.width = el.dataset.pct + '%';
+});
+
+function fetchLivePrice(symbol) {
+    if (!symbol) return;
+    var feedback = document.getElementById('price-feedback');
+    var priceInput = document.getElementById('avg-buy-price');
+    feedback.textContent = 'Fetching live price…';
+    feedback.style.color = 'var(--muted)';
+    fetch('/wallet/prices/' + encodeURIComponent(symbol) + '/')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.status === 'ok') {
+                priceInput.value = data.price;
+                feedback.textContent = '✓ ' + data.provider + ' live price';
+                feedback.style.color = 'var(--green)';
+            } else {
+                feedback.textContent = data.message || 'Price not found';
+                feedback.style.color = 'var(--red)';
+            }
+        })
+        .catch(function() {
+            feedback.textContent = 'Error fetching price';
+            feedback.style.color = 'var(--red)';
+        });
+}
+function updateAssetType(select) {
+    var opt = select.options[select.selectedIndex];
+    document.getElementById('asset-type-select').value = opt.getAttribute('data-type') || 'crypto';
+}
+
+// Donut chart — Crypto vs Stocks
+(function() {
+    var cryptoVal = parseFloat("{{ crypto_value|floatformat:2 }}") || 0;
+    var stockVal  = parseFloat("{{ stock_value|floatformat:2 }}") || 0;
+    var total = cryptoVal + stockVal;
+    if (total === 0) return;
+
+    var ctx = document.getElementById('allocationChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Crypto', 'Stocks'],
+            datasets: [{
+                data: [cryptoVal, stockVal],
+                backgroundColor: ['#4f8ef7', '#a78bfa'],
+                borderColor: '#1a1d27',
+                borderWidth: 3,
+                hoverOffset: 6,
+            }]
+        },
+        options: {
+            cutout: '70%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        color: '#8892a4',
+                        font: { size: 12 },
+                        padding: 16,
+                        usePointStyle: true,
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            var pct = ((ctx.parsed / total) * 100).toFixed(1);
+                            return ' $' + ctx.parsed.toFixed(2) + ' (' + pct + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+})();
+</script>
 {% endblock %}

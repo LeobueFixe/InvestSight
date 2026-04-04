@@ -13,6 +13,7 @@ from apps.apis.settings import settings
 
 DATA_FILE = Path("apps/apis/data/prices.json")
 logger = get_logger("yahoo")
+YAHOO_FINANCE_ENABLED = settings.YAHOO_FINANCE_ENABLED
 
 
 
@@ -45,7 +46,7 @@ class YahooFinanceService(PriceService):
 
     @with_retry
     def get_price(self, symbol: str) -> Optional[PriceResult]:
-        if not settings.YAHOO_FINANCE_ENABLED:
+        if not YAHOO_FINANCE_ENABLED:
             logger.info("yahoo_disabled", symbol=symbol)
             return None
 
@@ -83,7 +84,7 @@ class YahooFinanceService(PriceService):
 
     @with_retry
     def get_all_prices(self) -> Dict[str, PriceResult]:
-        if not settings.YAHOO_FINANCE_ENABLED:
+        if not YAHOO_FINANCE_ENABLED:
             logger.info("yahoo_disabled_all_prices")
             return {}
 
@@ -107,7 +108,7 @@ class YahooFinanceService(PriceService):
         """
         Returns historical daily close prices for the last N days.
         """
-        if not settings.YAHOO_FINANCE_ENABLED:
+        if not YAHOO_FINANCE_ENABLED:
             logger.info("yahoo_disabled_history", symbol=symbol)
             return []
 

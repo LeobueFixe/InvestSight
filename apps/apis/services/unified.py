@@ -14,6 +14,7 @@ import requests
 
 DATA_FILE = Path("apps/apis/data/prices.json")
 logger = get_logger("unified")
+USE_MOCK_DATA = settings.USE_MOCK_DATA
 
 
 def load_data_file() -> dict:
@@ -89,7 +90,7 @@ class UnifiedPriceService:
         logger.info("unified_price_request", symbol=symbol, target_currency=target_currency)
 
         # Mock override
-        if settings.USE_MOCK_DATA:
+        if USE_MOCK_DATA:
             logger.warning("mock_mode_enabled", symbol=symbol)
             result = self.mock_service.get_price(symbol)
             if result and result.currency != target_currency:
@@ -151,7 +152,16 @@ class UnifiedPriceService:
         logger.warning("fallback_mock", symbol=symbol)
         result = self.mock_service.get_price(symbol)
 
-        if result and result.currency != target_currency:
+        if result is None:
+            result = PriceResult(
+                symbol=symbol,
+                price=Decimal("0"),
+                currency="USD",
+                provider="mock",
+                timestamp=datetime.utcnow(),
+            )
+
+        if result.currency != target_currency:
             result.price = self.convert_currency(result.price, result.currency, target_currency)
             result.currency = target_currency
 
