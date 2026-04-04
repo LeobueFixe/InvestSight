@@ -12,8 +12,8 @@ services:
       - DEBUG=True
       - ALLOWED_HOSTS=localhost,127.0.0.1
       - USE_MOCK_DATA=True
-      - COINGECKO_BASE_URL=
-      - COINGECKO_API_KEY=
+      - COINGECKO_BASE_URL=https://api.coingecko.com/api/v3
+      - COINGECKO_API_KEY=CG-Zg73FQsCZpyFVJp8Mx2y4Zq8
       - YAHOO_FINANCE_ENABLED=False
       - CACHE_TTL_CRYPTO=300
       - CACHE_TTL_STOCK=600

@@ -1,22 +1,19 @@
 from typing import Optional
-
 from apps.apis.services.base import PriceResult
-from apps.apis.services.unified import get_price as unified_get_price
-from apps.apis.services.cache import get_price_with_cache
-
+from apps.apis.services.cache import (
+    get_price_with_cache,
+    get_all_prices_with_cache
+)
 
 class PriceServiceFacade:
     def get_price(self, symbol: str) -> Optional[PriceResult]:
-        return unified_get_price(symbol)
+        return get_price_with_cache(symbol)
 
     def get_all_prices(self) -> dict[str, PriceResult]:
-        from apps.apis.services.unified import get_all_prices
-
-        return get_all_prices()
+        return get_all_prices_with_cache()
 
 
 _price_service = None
-
 
 def get_price_service() -> PriceServiceFacade:
     global _price_service

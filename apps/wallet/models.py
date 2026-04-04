@@ -8,7 +8,7 @@ from django.contrib.auth.models import User
 
 from apps.apis.services.unified import get_price
 
-# Model for storing the seed phrase associated with a user
+# List of the words which randomly goes to the seedPrase!
 WORDLIST = [
     "abandon",
     "ability",
@@ -2356,9 +2356,9 @@ class PrivateKey(models.Model):
         )
 
     def get_public_key(self):
-        raise NotImplementedError("Public keys are derived client-side for security.")
-
-    # Method to derive the public address for a given cryptocurrency based on the public key and the specific derivation method defined in the CRYPTO_REGISTRY. It supports multiple cryptocurrencies and their respective address formats.
+        private = self.get_private_key()
+        return derive_public_key(private)
+# Method to derive the public address for a given cryptocurrency based on the public key and the specific derivation method defined in the CRYPTO_REGISTRY. It supports multiple cryptocurrencies and their respective address formats.
     def get_public_address(self, crypto: str = "bitcoin", mainnet: bool = True) -> str:
         crypto = crypto.lower()
         public_key = self.get_public_key()
@@ -2392,19 +2392,19 @@ class AssetType(models.TextChoices):
     STOCK = "stock", "Stock"
 
 
-# Model representing a financial asset, such as a cryptocurrency or stock
+# Represents a financial asset, such as a cryptocurrency or stock. It has fields for the symbol, name, type, and creation date. The save method ensures that the symbol is always stored in uppercase. The current_price property retrieves the latest price of the asset using the get_price function. The __str__ method provides a human-readable representation of the asset.
 class Asset(models.Model):
     symbol = models.CharField(max_length=20, unique=True)
     name = models.CharField(max_length=200)
     asset_type = models.CharField(max_length=20, choices=AssetType.choices)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    # Override the save method to ensure the symbol is always stored in uppercase
+    # Override the save method to ensure that the symbol is always stored in uppercase. This helps maintain consistency and makes it easier to query assets by their symbol.
     def save(self, *args, **kwargs):
         self.symbol = self.symbol.upper()
         super().save(*args, **kwargs)
 
-    # Property to get the current price of the asset using the get_price function
+    # Gets the current price of the asset by calling the get_price function with the asset's symbol. If the price is available, it returns the price as a Decimal. If the price is not available (e.g., if the API call fails), it returns None.
     @property
     def current_price(self) -> Optional[Decimal]:
         result = get_price(self.symbol)
@@ -2416,7 +2416,7 @@ class Asset(models.Model):
         return f"{self.symbol} ({self.name})"
 
 
-# Model representing a holding of a specific asset within a portfolio, including quantity and average buy price
+# Represents a holding in a portfolio, which is a specific quantity of an asset.
 class Holding(models.Model):
     portfolio = models.ForeignKey(
         "portfolio.Portfolio", on_delete=models.CASCADE, related_name="holdings"
@@ -2427,10 +2427,11 @@ class Holding(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+#Return the total of money did you use
     @property
     def total_cost(self) -> Decimal:
         return self.quantity * self.avg_buy_price
-
+#Return the current money is now
     @property
     def current_value(self) -> Optional[Decimal]:
         current_price = self.asset.current_price
@@ -2438,13 +2439,14 @@ class Holding(models.Model):
             return None
         return self.quantity * current_price
 
+#Return the difference between the current value and the cost.
     @property
     def profit_loss(self) -> Optional[Decimal]:
         current = self.current_value
         if current is None:
             return None
         return current - self.total_cost
-
+#Return the Percentage of profit and loss
     @property
     def pnl_pct(self) -> Optional[Decimal]:
         if self.total_cost == 0:
