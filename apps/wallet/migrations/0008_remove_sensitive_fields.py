@@ -1,6 +1,6 @@
 from django.db import migrations
 
-
+# This migration removes the sensitive fields from the SeedPhrase and PrivateKey models.
 class Migration(migrations.Migration):
     dependencies = [
         ("wallet", "0007_seedphrase_phrase"),

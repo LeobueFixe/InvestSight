@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.db import migrations, models
 
-
+# This migration adds the WalletTransaction model to track all transactions related to the user's wallet, including sends, receives, imports, and address creations. It also links each transaction to the user for easy retrieval and management.
 class Migration(migrations.Migration):
     dependencies = [
         ("wallet", "0002_add_wallet"),

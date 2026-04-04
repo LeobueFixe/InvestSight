@@ -2,7 +2,7 @@ from django.urls import path
 from . import views
 
 app_name = "portfolio"
-
+# This URL configuration defines the routes for the portfolio app, including user signup, wallet management, and portfolio details. Each route is linked to a corresponding view function that handles the logic for that endpoint. The routes include:
 urlpatterns = [
     path("signup/", views.signup, name="signup"),
     path("wallet/", views.wallet, name="wallet"),
